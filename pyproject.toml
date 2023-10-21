@@ -6,8 +6,28 @@ authors = ["Matheus Costa <matheeusferreeira@hotmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "3.11.6"
+pandas = "^2.1.1"
+google-api-python-client = "^2.104.0"
+python-dotenv = "^1.0.0"
 
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.10.0"
+isort = "^5.12.0"
+flake8 = "^6.1.0"
+pydocstyle = "^6.3.0"
+pip-audit = "^2.6.1"
+pytest = "^7.4.2"
+pre-commit = "^3.5.0"
+
+
+[tool.poetry.group.mkdocs.dependencies]
+mkdocs = "^1.5.3"
+mkdocstrings-python = "^1.7.3"
+pygments = "^2.16.1"
+mkdocs-material = "^9.4.6"
+pymdown-extensions = "^10.3.1"
 
 [build-system]
 requires = ["poetry-core"]
