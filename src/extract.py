@@ -1,11 +1,14 @@
 """Módulo de extração de dados de canais do YouTube via API."""
 
 import os
+from datetime import datetime
 from typing import Tuple
 
 import pandas as pd
 from dotenv import load_dotenv
 from googleapiclient.discovery import Resource, build
+
+from .load import save_to_csv
 
 env_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
@@ -17,7 +20,15 @@ API_SERVICE_NAME = "youtube"
 API_VERSION = "v3"
 
 
-def get_authenticated_service() -> Resource:
+def ensure_dir(directory: str):
+    """
+    Cria o diretório caso ele não exista.
+    """
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
+def authenticated_service() -> Resource:
     """
     Retorna um objeto Resource autenticado para interagir com o serviço da API.
 
@@ -37,9 +48,9 @@ def get_authenticated_service() -> Resource:
     return build(API_SERVICE_NAME, API_VERSION, developerKey=API_KEY)
 
 
-def get_channel_info_by_usename(
-    service: Resource, **kwargs
-) -> Tuple[str, pd.DataFrame]:
+def extract_all_channel_info_by_usename(
+    service: Resource, max_results_per_page: int, **kwargs
+) -> Tuple[pd.DataFrame, int]:
     """
     Obtém informações sobre canal do YouTube com base no nome de usuário.
 
@@ -74,7 +85,7 @@ def get_channel_info_by_usename(
     subscriber_count = response["items"][0]["statistics"]["subscriberCount"]
     video_count = response["items"][0]["statistics"]["videoCount"]
 
-    canal_info = {
+    channel_info = {
         "id": id,
         "title": title,
         "description": description,
@@ -86,24 +97,26 @@ def get_channel_info_by_usename(
         "video_count": video_count,
     }
 
-    df = pd.DataFrame([canal_info])
-
-    return canal_info["id"], df
-
-
-def get_total_pages(service: Resource, **kwargs) -> int:
-    response = service.search().list(**kwargs).execute()
-
+    # extract total pages of the channel
+    response = (
+        service.search()
+        .list(
+            part="snippet",
+            channelId=channel_info["id"],
+            maxResults=max_results_per_page,
+        )
+        .execute()
+    )
     if "pageInfo" in response:
         total_results = response["pageInfo"]["totalResults"]
         total_pages = total_results // max_results_per_page
         if total_results % max_results_per_page > 0:
             total_pages += 1
 
-    return total_pages
+    return pd.DataFrame([channel_info]), total_pages
 
 
-def get_all_videos_info(service: Resource, **kwargs) -> Tuple[str, pd.DataFrame]:
+def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, str]:
     """
     Obtém informações sobre vídeos da API do YouTube.
 
@@ -175,34 +188,48 @@ def get_all_videos_info(service: Resource, **kwargs) -> Tuple[str, pd.DataFrame]
     except (KeyError, TypeError):
         video_list = []
 
-    df = pd.DataFrame(video_list)
-
-    return next_page_token, df
+    return pd.DataFrame(video_list), next_page_token
 
 
-if __name__ == "__main__":
-    service = get_authenticated_service()
-    channel_id, df_channel_info = get_channel_info_by_usename(
+def extract_full(save_path):
+    """
+    Pipeline responsável por chamar todos os métodos de extração.
+    """
+    ensure_dir(save_path)
+
+    service = authenticated_service()
+    max_results_per_page = 50
+    _datetime = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+    df_channel, total_pages = extract_all_channel_info_by_usename(
         service,
+        max_results_per_page=max_results_per_page,
         part="snippet,contentDetails,statistics",
         forUsername="einerdtv",
     )
-    max_results_per_page = 50
-    total_pages = get_total_pages(
-        service,
-        part="snippet",
-        channelId=channel_id,
-        maxResults=max_results_per_page,
-    )
-    for page_number in range(1, 5):
-        next_page_token, df_videos_info = get_all_videos_info(
+    file_name = f"channel_einerd_{_datetime}.csv"
+    save_to_csv(df_channel, file_name, save_path)
+
+    df_videos = pd.DataFrame()
+    for page_number in range(1, 20):
+        df, next_page_token = extract_all_videos_info(
             service,
             part="id,snippet",
-            channelId=channel_id,
+            channelId=df_channel.loc[0, "id"],
             type="video",
             order="date",
+            maxResults=max_results_per_page,
             pageToken=None if page_number == 1 else next_page_token,
         )
+        df_videos = pd.concat([df_videos, df])
+
         if next_page_token is None:
             break
-    print(df_videos_info.head())
+    file_name = f"videos_einerd_{_datetime}.csv"
+    save_to_csv(df_videos, file_name, save_path)
+
+
+if __name__ == "__main__":
+    save_path = "data/bronze/"
+
+    extract_full(save_path)
