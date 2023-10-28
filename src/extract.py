@@ -10,9 +10,7 @@ from googleapiclient.discovery import Resource, build
 
 from .load import save_to_csv
 
-env_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
-)
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.environ.get("API_KEY")
@@ -21,9 +19,7 @@ API_VERSION = "v3"
 
 
 def ensure_dir(directory: str):
-    """
-    Cria o diretório caso ele não exista.
-    """
+    """Cria o diretório caso ele não exista."""
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -32,17 +28,18 @@ def authenticated_service() -> Resource:
     """
     Retorna um objeto Resource autenticado para interagir com o serviço da API.
 
-    Essa função constrói e retorna um objeto Resource configurado para interagir com o
-    serviço da API, utilizando as credenciais e a chave de API configuradas no módulo
-    ou no ambiente.
+    Essa função constrói e retorna um objeto Resource configurado
+    para interagir com o serviço da API, utilizando as credenciais
+    e a chave de API configuradas no módulo ou no ambiente.
 
     Returns:
-        googleapiclient.discovery.Resource: Um objeto Resource configurado para o serviço
-        da API.
+        googleapiclient.discovery.Resource: Um objeto Resource
+        configurado para o serviço da API.
 
     Raises:
         YoutubeAPIKeyError: Se a chave de API do YouTube for inválida.
-        UnknownApiNameOrVersion: Se o nome do serviço ou a versão da API forem inválidos.
+        UnknownApiNameOrVersion: Se o nome do serviço ou
+        a versão da API forem inválidos.
 
     """
     return build(API_SERVICE_NAME, API_VERSION, developerKey=API_KEY)
@@ -54,21 +51,27 @@ def extract_all_channel_info_by_usename(
     """
     Obtém informações sobre canal do YouTube com base no nome de usuário.
 
-    Esta função utiliza o serviço da API do YouTube para buscar informações sobre canal
-    com base no nome de usuário fornecido. Ela retorna os resultados em um DataFrame,
-    que contém informações detalhadas sobre o canal.
+    Esta função utiliza o serviço da API do YouTube para buscar
+    informações sobre canal com base no nome de usuário fornecido.
+    Ela retorna os resultados em um DataFrame, que contém informações
+    detalhadas sobre o canal.
 
     Args:
         service (googleapiclient.discovery.Resource):
-            O serviço da API do YouTube configurado usando a biblioteca google-api-python-client.
+            O serviço da API do YouTube configurado usando a biblioteca
+            google-api-python-client.
         **kwargs (dict):
-            Um dicionário de argumentos nomeados adicionais para personalizar a consulta.
+            Um dicionário de argumentos nomeados adicionais para personalizar
+            a consulta.
             Os argumentos suportados incluem:
-            - part (str): As partes da informação do canal a serem recuperadas (padrão: "snippet,contentDetails,statistics").
-            - forUsername (str): O nome de usuário do canal a ser pesquisado (padrão: "einerdtv").
+            - part (str): As partes da informação do canal a serem recuperadas
+              (Padrão: "snippet,contentDetails,statistics").
+            - forUsername (str): O nome de usuário do canal a ser pesquisado
+              (Padrão: "einerdtv").
 
     Returns:
-        Tuple: Uma tupla contendo o Id do canal e um DataFrame contendo informações detalhadas sobre o canal.
+        Tuple[pd.DataFrame, int]: Uma tupla contendo o Id do canal e um
+        DataFrame contendo informações detalhadas sobre o canal.
 
     Raises:
         Alguma exceção que a função pode levantar, se aplicável.
@@ -120,33 +123,43 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
     """
     Obtém informações sobre vídeos da API do YouTube.
 
-    Esta função consulta a API do YouTube para recuperar informações sobre vídeos com base nos
-    parâmetros fornecidos em **kwargs. Ela retorna uma tupla contendo o token da próxima página
-    para paginação e um DataFrame do Pandas contendo informações detalhadas sobre cada vídeo.
+    Esta função consulta a API do YouTube para recuperar informações
+    sobre vídeos com base nos parâmetros fornecidos em **kwargs.
+    Ela retorna uma tupla contendo o token da próxima página
+    para paginação e um DataFrame do Pandas contendo informações
+    detalhadas sobre cada vídeo.
 
     Args:
         service (googleapiclient.discovery.Resource):
-            O serviço da API do YouTube configurado usando a biblioteca google-api-python-client.
+            O serviço da API do YouTube configurado usando a biblioteca
+            google-api-python-client.
 
         **kwargs (dict):
-            Um dicionário de argumentos nomeados adicionais para personalizar a consulta.
+            Um dicionário de argumentos nomeados adicionais para
+            personalizar a consulta.
             Os argumentos suportados incluem:
-            - part (str): As partes da informação do canal a serem recuperadas (padrão: "id,snippet").
-            - channelId (str): O ID do canal do YouTube para o qual você deseja recuperar informações sobre os vídeos.
-            - type (str): O parâmetro type restringe uma consulta de pesquisa para recuperar apenas um determinado tipo de recurso.
-            - order (str): O parâmetro order especifica o método que será usado para ordenar recursos na resposta da API.
-            - pageToken (str): O token de página para paginar os resultados. Use-o para recuperar o próximo conjunto
-            de vídeos. Padrão é None.
+            part (str): As partes da informação do canal a serem
+              recuperadas (padrão: "id,snippet").
+            channelId (str): O ID do canal do YouTube para o qual você
+              deseja recuperar informações sobre os vídeos.
+            type (str): O parâmetro type restringe uma consulta de pesquisa
+              para recuperar apenas um determinado tipo de recurso.
+            order (str): O parâmetro order especifica o método que será
+              usado para ordenar recursos na resposta da API.
+            pageToken (str): O token de página para paginar os resultados.
+              Use-o para recuperar o próximo conjunto de vídeos. Padrão é None.
 
     Returns:
-        Tuple[str, pd.DataFrame]:
-            Uma tupla contendo:
-            - O token da próxima página para paginação. Se não houver mais páginas, será None.
-            - Um DataFrame do Pandas com informações sobre os vídeos, incluindo ID, título,
-              descrição, data de publicação e estatísticas.
+        Tuple[str, pd.DataFrame]: Uma tupla contendo:
+            O token da próxima página para paginação. Se não houver
+              mais páginas, será None.
+            Um DataFrame do Pandas com informações sobre os vídeos,
+              incluindo ID, título, descrição, data de publicação
+              e estatísticas.
 
     Raises:
-        Quaisquer exceções que a função possa gerar durante as solicitações à API.
+        Quaisquer exceções que a função possa gerar durante as
+        solicitações à API.
     """
     response = service.search().list(**kwargs).execute()
 
@@ -162,9 +175,7 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
             publishedAt = item["snippet"]["publishedAt"]
 
             # Use the 'videos().list' method to retrieve video statistics
-            video_statistics_response = (
-                service.videos().list(part="statistics", id=id).execute()
-            )
+            video_statistics_response = service.videos().list(part="statistics", id=id).execute()
             statistics = video_statistics_response["items"][0]["statistics"]
             view_count = statistics.get("viewCount", 0)
             like_count = statistics.get("likeCount", 0)
@@ -192,9 +203,7 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
 
 
 def extract_full(save_path):
-    """
-    Pipeline responsável por chamar todos os métodos de extração.
-    """
+    """Pipeline responsável por chamar todos os métodos de extração."""
     ensure_dir(save_path)
 
     service = authenticated_service()
@@ -210,6 +219,8 @@ def extract_full(save_path):
     file_name = f"channel_einerd_{_datetime}.csv"
     save_to_csv(df_channel, file_name, save_path)
 
+    df = None
+    next_page_token = None
     df_videos = pd.DataFrame()
     for page_number in range(1, 20):
         df, next_page_token = extract_all_videos_info(

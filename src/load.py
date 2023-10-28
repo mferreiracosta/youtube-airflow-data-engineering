@@ -12,7 +12,8 @@ def save_to_csv(data: pd.DataFrame, file_name: str, save_path: str):
     Args:
         data (pd.DataFrame): O DataFrame a ser salvo como um arquivo CSV.
         file_name (str): O nome base do arquivo CSV (com extensão).
-        save_path (str): O caminho para o diretório onde o arquivo CSV será salvo.
+        save_path (str): O caminho para o diretório onde o arquivo
+        CSV será salvo.
     """
     save_file_path = os.path.join(save_path, file_name)
 
