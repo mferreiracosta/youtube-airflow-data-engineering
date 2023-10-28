@@ -10,7 +10,9 @@ from googleapiclient.discovery import Resource, build
 
 from .load import save_to_csv
 
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+env_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
+)
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.environ.get("API_KEY")
@@ -175,7 +177,9 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
             publishedAt = item["snippet"]["publishedAt"]
 
             # Use the 'videos().list' method to retrieve video statistics
-            video_statistics_response = service.videos().list(part="statistics", id=id).execute()
+            video_statistics_response = (
+                service.videos().list(part="statistics", id=id).execute()
+            )
             statistics = video_statistics_response["items"][0]["statistics"]
             view_count = statistics.get("viewCount", 0)
             like_count = statistics.get("likeCount", 0)
@@ -222,7 +226,7 @@ def extract_full(save_path):
     df = None
     next_page_token = None
     df_videos = pd.DataFrame()
-    for page_number in range(1, 20):
+    for page_number in range(1, 50):
         df, next_page_token = extract_all_videos_info(
             service,
             part="id,snippet",
@@ -231,6 +235,7 @@ def extract_full(save_path):
             order="date",
             maxResults=max_results_per_page,
             pageToken=None if page_number == 1 else next_page_token,
+            publishedAfter=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
         df_videos = pd.concat([df_videos, df])
 
