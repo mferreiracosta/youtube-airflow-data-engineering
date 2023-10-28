@@ -10,6 +10,7 @@ python = "3.11.6"
 pandas = "^2.1.1"
 google-api-python-client = "^2.104.0"
 python-dotenv = "^1.0.0"
+pyarrow = "^13.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
