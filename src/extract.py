@@ -7,6 +7,7 @@ from typing import Tuple
 import pandas as pd
 from dotenv import load_dotenv
 from googleapiclient.discovery import Resource, build
+from loguru import logger
 
 from .load import save_to_csv
 
@@ -78,29 +79,34 @@ def extract_all_channel_info_by_usename(
     Raises:
         Alguma exceção que a função pode levantar, se aplicável.
     """
-    response = service.channels().list(**kwargs).execute()
+    try:
+        response = service.channels().list(**kwargs).execute()
 
-    id = response["items"][0]["id"]
-    title = response["items"][0]["snippet"]["title"]
-    description = response["items"][0]["snippet"]["description"]
-    custom_url = response["items"][0]["snippet"]["customUrl"]
-    publishedAt = response["items"][0]["snippet"]["publishedAt"]
-    country = response["items"][0]["snippet"]["country"]
-    view_count = response["items"][0]["statistics"]["viewCount"]
-    subscriber_count = response["items"][0]["statistics"]["subscriberCount"]
-    video_count = response["items"][0]["statistics"]["videoCount"]
+        id = response["items"][0]["id"]
+        title = response["items"][0]["snippet"]["title"]
+        description = response["items"][0]["snippet"]["description"]
+        custom_url = response["items"][0]["snippet"]["customUrl"]
+        publishedAt = response["items"][0]["snippet"]["publishedAt"]
+        country = response["items"][0]["snippet"]["country"]
+        view_count = response["items"][0]["statistics"]["viewCount"]
+        subscriber_count = response["items"][0]["statistics"]["subscriberCount"]
+        video_count = response["items"][0]["statistics"]["videoCount"]
 
-    channel_info = {
-        "id": id,
-        "title": title,
-        "description": description,
-        "custom_url": custom_url,
-        "publishedAt": publishedAt,
-        "country": country,
-        "view_count": view_count,
-        "subscriber_count": subscriber_count,
-        "video_count": video_count,
-    }
+        channel_info = {
+            "id": id,
+            "title": title,
+            "description": description,
+            "custom_url": custom_url,
+            "publishedAt": publishedAt,
+            "country": country,
+            "view_count": view_count,
+            "subscriber_count": subscriber_count,
+            "video_count": video_count,
+        }
+
+        logger.info("Extração de informações sobre o canal concluída com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro na extração de informações sobre o canal: {e}")
 
     # extract total pages of the channel
     response = (
@@ -163,11 +169,11 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
         Quaisquer exceções que a função possa gerar durante as
         solicitações à API.
     """
-    response = service.search().list(**kwargs).execute()
-
-    next_page_token = response.get("nextPageToken", None)
-
     try:
+        response = service.search().list(**kwargs).execute()
+
+        next_page_token = response.get("nextPageToken", None)
+
         video_list = []
         for item in response.get("items", []):
             id = item["id"]["videoId"]
@@ -200,14 +206,19 @@ def extract_all_videos_info(service: Resource, **kwargs) -> Tuple[pd.DataFrame, 
 
             video_list.append(video_info)
 
-    except (KeyError, TypeError):
+        logger.info(
+            "Extração de informações sobre os vídeos do canal concluída com sucesso."
+        )
+    except Exception as e:
         video_list = []
+        logger.error(f"Erro na extração de informações sobre os vídeos do canal: {e}")
 
     return pd.DataFrame(video_list), next_page_token
 
 
-def extract_full(save_path):
+def extract_full(save_path: str, published_date: str):
     """Pipeline responsável por chamar todos os métodos de extração."""
+    # Verifique se os diretórios necessários existem ou crie-os
     ensure_dir(save_path)
 
     service = authenticated_service()
@@ -235,7 +246,7 @@ def extract_full(save_path):
             order="date",
             maxResults=max_results_per_page,
             pageToken=None if page_number == 1 else next_page_token,
-            publishedAfter=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            publishedAfter=published_date,
         )
         df_videos = pd.concat([df_videos, df])
 

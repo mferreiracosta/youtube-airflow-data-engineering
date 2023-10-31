@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, List
 
 import pandas as pd
+from loguru import logger
 
 
 def ensure_dir(list_of_directory: List[str]):
@@ -47,24 +48,28 @@ def get_processed_files(silver_zone: str) -> Dict[str, pd.DataFrame]:
         try:
             file_path = os.path.join(silver_zone, filename)
             dict_restored_df[filename] = pd.read_parquet(file_path, engine="pyarrow")
+
             # remove o arquivo lido do diretório
             os.remove(file_path)
+
+            logger.info(
+                f"Arquivo '{filename}' obtido com sucesso do diretório '{file_path}'."
+            )
         except Exception as e:
-            print(f"[ERRO] Falha ao tentar ler os arquivos .parquet: {e}")
+            logger.error(f"Falha ao tentar ler os arquivos .parquet: {e}")
 
     return dict_restored_df
 
 
 def process_files(bronze_zone: str) -> Dict[str, pd.DataFrame]:
     """
-    Processa os arquivos dentro do diretório fornecido e salva no diretório de destino.
+    Processa os arquivos do diretório fornecido.
 
     Args:
-        load_path (str): diretório em que buscará o CSV.
-        save_path (str): diretório em que será salvo o CSV processado.
+        bronze_zone (str): diretório em que buscará o CSV para ser processado.
 
     Returns:
-        List[str]: lista de mensagens indicando quais arquivos foram processados.
+        Dict[str, pd.DataFrame]: Dicionário contendo o nome do arquivo e o DataFrame com informações do arquivo processado.
     """
     # Obtendo uma lista de arquivos procesados .csv
     csv_files = [f for f in os.listdir(bronze_zone) if re.search("2023-10-27", f)]
@@ -88,10 +93,9 @@ def process_files(bronze_zone: str) -> Dict[str, pd.DataFrame]:
 
             dict_process_df[filename] = df
 
-            print(f"[SUCESSO] Arquivo '{filename}' foi processado.")
-
+            logger.info(f"Arquivo '{filename}' processado com sucesso.")
         except Exception as e:
-            print(f"[ERRO] Não foi possível processar o arquivo '{filename}': {e}")
+            logger.error(f"Não foi possível processar o arquivo '{filename}': {e}")
 
     return dict_process_df
 
@@ -103,54 +107,70 @@ def consolidated_all_files(bronze_zone: str, silver_zone: str):
 
     all_dfs = {"channel": {}, "videos": {}}
 
-    for key, value in dict_restored_df.items():
-        target_dict = (
-            all_dfs["videos"] if key.startswith("videos_") else all_dfs["channel"]
-        )
-        target_dict[key] = value
+    logger.info("Iniciando a consolidação dos dataframes...")
 
-    for key, value in dict_process_df.items():
-        target_dict = (
-            all_dfs["videos"] if key.startswith("videos_") else all_dfs["channel"]
-        )
-        target_dict[key] = value
-
-    # Consolidando todos DataFrames em um único
-    consolidated_channel_df = pd.concat(all_dfs["channel"].values(), ignore_index=True)
-    consolidated_video_df = pd.concat(all_dfs["videos"].values(), ignore_index=True)
-
-    for outer_key, inner_dict in all_dfs.items():
-        if outer_key == "channel":
-            filename = str(next(iter(inner_dict.keys())))
-            base_filename = f"{'_'.join(filename.split('_')[:-1])}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            save_file_path = os.path.join(save_path, f"{base_filename}.parquet")
-
-            consolidated_channel_df.to_parquet(
-                save_file_path, engine="pyarrow", index=False
+    try:
+        for key, value in dict_restored_df.items():
+            target_dict = (
+                all_dfs["videos"] if key.startswith("videos_") else all_dfs["channel"]
             )
-        else:
-            filename = str(next(iter(inner_dict.keys())))
-            base_filename = f"{'_'.join(filename.split('_')[:-1])}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            save_file_path = os.path.join(save_path, f"{base_filename}.parquet")
+            target_dict[key] = value
 
-            consolidated_video_df.to_parquet(
-                save_file_path, engine="pyarrow", index=False
+        for key, value in dict_process_df.items():
+            target_dict = (
+                all_dfs["videos"] if key.startswith("videos_") else all_dfs["channel"]
             )
+            target_dict[key] = value
+
+        # Consolidando todos DataFrames em um único
+        consolidated_channel_df = pd.concat(
+            all_dfs["channel"].values(), ignore_index=True
+        )
+        consolidated_video_df = pd.concat(all_dfs["videos"].values(), ignore_index=True)
+
+        logger.info("Consolidação dos dataframes concluída com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ocorrido durante a consolidação dos dataframes: {e}")
+
+    logger.info("Iniciando a carga dos arquivos transformados na camada silver...")
+
+    try:
+        for outer_key, inner_dict in all_dfs.items():
+            if outer_key == "channel":
+                filename = str(next(iter(inner_dict.keys())))
+                base_filename = f"{'_'.join(filename.split('_')[:-1])}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                save_file_path = os.path.join(silver_zone, f"{base_filename}.parquet")
+
+                consolidated_channel_df.to_parquet(
+                    save_file_path, engine="pyarrow", index=False
+                )
+            else:
+                filename = str(next(iter(inner_dict.keys())))
+                base_filename = f"{'_'.join(filename.split('_')[:-1])}_{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                save_file_path = os.path.join(silver_zone, f"{base_filename}.parquet")
+
+                consolidated_video_df.to_parquet(
+                    save_file_path, engine="pyarrow", index=False
+                )
+
+        logger.info("Carga dos arquivos transformados concluída com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ocorrido durante a carga dos arquivos transformados: {e}")
 
 
-def transformation_full(bronze_zone: str, silver_zone: str) -> List[str]:
+def transformation_full(bronze_zone: str, silver_zone: str):
     """
     Função completa para o processo de transformação dos arquivos CSV.
 
     Args:
-        load_path (str): diretório em que buscará o CSV.
-        save_path (str): diretório em que será salvo o CSV processado.
+        bronze_zone (str): diretório em que buscará o CSV.
+        silver_zone (str): diretório em que será salvo o CSV processado.
 
     Returns:
-        List[str]: lista de mensagens indicando quais arquivos foram processados.
+        None
     """
     ensure_dir([bronze_zone, silver_zone])
-    return consolidated_all_files(bronze_zone, silver_zone)
+    consolidated_all_files(bronze_zone, silver_zone)
 
 
 if __name__ == "__main__":
